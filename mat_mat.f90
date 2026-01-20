@@ -28,11 +28,11 @@ subroutine matrix_mul(A,B,C,n)
   double precision, intent(in) :: B(n,n), C(n,n)
 
   A = 0.0                  ! set every element of A to 0
-  
+
 ! now do the actual work: the triple loop:
-  do i=1,n
+  do k=1,n
      do j=1,n
-        do k=1,n
+        do i=1,n
            A(i,j) = A(i,j) + B(i,k)*C(k,j)
         end do
      end do
