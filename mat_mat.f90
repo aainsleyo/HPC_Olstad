@@ -7,11 +7,13 @@ program matrix
   allocate(A(n,n),B(n,n),C(n,n)) ! allocate memory space for the arrays
 
   ! fill the input apprays with random numbers (to avoid sparse matrices)
+  ! there's no need to fill the output array A, as it will be the output matrix
   call random_number(B)
   call random_number(C)
   call cpu_time(t0)        ! returns the current system clock time
   call matrix_mul(A,B,C,n) ! compute the product
   call cpu_time(t1)
+
   elapsed = t1-t0
   print *,'Time elapsed is ',elapsed
 
@@ -19,10 +21,14 @@ program matrix
 end program matrix
 
 subroutine matrix_mul(A,B,C,n)
-  integer :: i,j,k
-  double precision :: A(n,n),B(n,n),C(n,n)
+  implicit none
+  integer, intent(in) :: n
+  integer :: i, j, k
+  double precision, intent(out) :: A(n,n)
+  double precision, intent(in) :: B(n,n), C(n,n)
 
   A = 0.0                  ! set every element of A to 0
+  
 ! now do the actual work: the triple loop:
   do i=1,n
      do j=1,n
