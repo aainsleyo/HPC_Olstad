@@ -17,9 +17,9 @@ program matrix
   elapsed = t1-t0
   print *,'Time elapsed is ',elapsed
 
-  print *, 'A(1,1)=',A(1,1)  ! print one element to make sure the compiler
+  !print *, 'A(1,1)=',A(1,1)  ! print one element to make sure the compiler
                                 ! does not optimize away the whole computation
-  print *, 'Checksum:', sum(A)  ! print the sum of all elements as a checksum
+  !print *, 'Checksum:', sum(A)  ! print the sum of all elements as a checksum
                                 ! a checksum is a singlw value calculated from a larger set of data
 
   deallocate(A,B,C)        ! free the memory space
@@ -35,6 +35,7 @@ subroutine matrix_mul(A,B,C,n)
   A = 0.0                  ! set every element of A to 0
 
 ! now do the actual work: the triple loop:
+  ! k is the innermost loop for better performance (cache efficiency)
   do k=1,n
      do j=1,n
         do i=1,n
