@@ -7,7 +7,7 @@ program matrix
   allocate(A(n,n),B(n,n),C(n,n)) ! allocate memory space for the arrays
 
   ! fill the input apprays with random numbers (to avoid sparse matrices)
-  ! there's no need to fill the output array A, as it will be the output matrix
+  ! there is no need to fill the output array A, as it will be the output matrix
   call random_number(B)
   call random_number(C)
   call cpu_time(t0)        ! returns the current system clock time
