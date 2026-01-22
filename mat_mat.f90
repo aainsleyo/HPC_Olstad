@@ -17,9 +17,9 @@ program matrix
   elapsed = t1-t0
   print *,'Time elapsed is ',elapsed
 
-  !print *, 'A(1,1)=',A(1,1)  ! print one element to make sure the compiler
+  print *, 'A(1,1)=',A(1,1)  ! print one element to make sure the compiler
                                 ! does not optimize away the whole computation
-  !print *, 'Checksum:', sum(A)  ! print the sum of all elements as a checksum
+  print *, 'Checksum:', sum(A)  ! print the sum of all elements as a checksum
                                 ! a checksum is a singlw value calculated from a larger set of data
 
   deallocate(A,B,C)        ! free the memory space
