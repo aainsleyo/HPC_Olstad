@@ -3,7 +3,7 @@ program matrix
   integer :: i,j,k,n
   double precision, allocatable, dimension(:,:) :: A,B,C
   double precision :: elapsed,t0,t1
-  n = 3000               ! for now, fix the matrix size
+  n = 4096               ! for now, fix the matrix size
   allocate(A(n,n),B(n,n),C(n,n)) ! allocate memory space for the arrays
 
   ! fill the input apprays with random numbers (to avoid sparse matrices)
@@ -19,7 +19,7 @@ program matrix
 
   !print *, 'A(1,1)=',A(1,1)  ! print one element to make sure the compiler
                                 ! does not optimize away the whole computation
-  !print *, 'Checksum:', sum(A)  ! print the sum of all elements as a checksum
+  print *, 'Checksum:', sum(A)  ! print the sum of all elements as a checksum
                                 ! a checksum is a singlw value calculated from a larger set of data
 
   deallocate(A,B,C)        ! free the memory space
