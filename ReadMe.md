@@ -92,5 +92,3 @@ Recompile after changing `n`.
 * The checksum ensures the computation is not optimized away.
 
 ---
-
-If you want it *even shorter* (like half a page) or tweaked to match a specific rubric, just say the word 👍
