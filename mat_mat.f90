@@ -3,7 +3,7 @@ program matrix
   integer :: i,j,k,n
   double precision, allocatable, dimension(:,:) :: A,B,C
   double precision :: elapsed,t0,t1
-  n = 4096               ! for now, fix the matrix size
+  n = 512               ! for now, fix the matrix size
   allocate(A(n,n),B(n,n),C(n,n)) ! allocate memory space for the arrays
 
   ! fill the input apprays with random numbers (to avoid sparse matrices)
