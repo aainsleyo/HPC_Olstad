@@ -6,7 +6,7 @@ program matrix
   double precision, allocatable :: A(:,:), B(:,:), C(:,:)
   double precision :: t0, t1, elapsed
 
-  n = 512
+  n = 1024
 
   allocate(A(n,n), B(n,n), C(n,n))
 
@@ -38,13 +38,8 @@ subroutine matrix_mul_omp(A, B, C, n)
 
   A = 0.0d0
 
-  !-------------------------------------------------------
-  ! Parallelization strategy:
-  !   - Each thread gets a subset of rows (i ∈ S_worker)
-  !   - No race conditions (threads write disjoint rows)
-  !-------------------------------------------------------
-  !$omp parallel do private(j,k) schedule(static)
-  do i = 1, n
+  !$omp parallel do private (i,j,k) 
+  do i = 1, n ! make this loop run in parallel over N workers
      do j = 1, n
         do k = 1, n
            A(i,j) = A(i,j) + B(i,k) * C(k,j)
