@@ -14,13 +14,13 @@ program matrix
   call random_number(B)
   call random_number(C)
 
-  call cpu_time(t0)
+  t0 = omp_get_wtime()
   call matrix_mul_omp(A, B, C, n)
-  call cpu_time(t1)
+  t1 = omp_get_wtime()
 
   elapsed = t1 - t0
   print *, 'Time elapsed is ', elapsed
-  print *, 'Checksum:', sum(A)
+  !print *, 'Checksum:', sum(A)
 
   deallocate(A, B, C)
 end program matrix
