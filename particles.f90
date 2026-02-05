@@ -1,7 +1,7 @@
 module globals
 ! Global variables
 implicit none
-integer :: n=1000                               ! number of particles
+integer :: n=10                               ! number of particles
 double precision, parameter :: pi=2q0*asin(1q0) ! numerical constant
 double precision, parameter :: L=1.0d0
 end module globals
@@ -58,29 +58,45 @@ module BC
   use Langevin
   implicit none
 contains
+
   subroutine impose_BC(i)
-    integer :: i
+    integer, intent(in) :: i
+    logical :: still_outside
 
-    ! decide on BC and implement those here
+    still_outside = .false.
 
-    check if (x(i), y(i)) is inside [0,L] X [0,L]
-    if NOT:
-       check top: if y(i) > L/2 then:
-          reflect y(i) in y=L/2
-          reflect vhy(i)
-       check left: if x(i) < -L/2 then:
-	  reflect x(i) in x=-L/2
-	  reflect vhx(i)
-       check bottom: if y(i) < -L/2 then:
-          reflect y(i) in y=-L/2
-          reflect vhy(i)
-       check left: if x(i) > L/2 then:
-          reflect x(i) in x=L/2
-          reflect vhx(i)
-    if particle i is still outside then set outside(i) = True
+    ! --- Top wall (y = +L/2)
+    if (y(i) > 0.5d0*L) then
+       y(i)  =  L - y(i)           ! reflect position
+       vhy(i) = -vhy(i)            ! reflect velocity
+    end if
 
+    ! --- Bottom wall (y = -L/2)
+    if (y(i) < -0.5d0*L) then
+       y(i)  = -L - y(i)
+       vhy(i) = -vhy(i)
+    end if
+
+    ! --- Right wall (x = +L/2)
+    if (x(i) > 0.5d0*L) then
+       x(i)  =  L - x(i)
+       vhx(i) = -vhx(i)
+    end if
+
+    ! --- Left wall (x = -L/2)
+    if (x(i) < -0.5d0*L) then
+       x(i)  = -L - x(i)
+       vhx(i) = -vhx(i)
+    end if
+
+    ! --- Final safety check
+    if ( x(i) >  0.5d0*L .or. x(i) < -0.5d0*L .or. &
+         y(i) >  0.5d0*L .or. y(i) < -0.5d0*L ) then
+       outside(i) = .true.
+    end if
 
   end subroutine impose_BC
+
 end module BC
 
 program main
@@ -95,12 +111,16 @@ double precision :: wtime,begin,end
 ! Open files
 open(12,file='means')
 
+! Open trajectory files (for debugging / testing)
+open(20, file="traj_1.dat", status="replace")
+open(21, file="traj_2.dat", status="replace")
+
 ! Allocate arrays
 allocate(x(n),y(n),vx(n),vy(n),ax(n),ay(n),vhx(n),vhy(n),x0(n),y0(n),outside(n))
 
 outside = .False.
 t=0d0
-t_max=100d0     ! integration time
+t_max=5.0d0     ! integration time
 
 call set_parameters
 call initialize_particles
@@ -110,19 +130,32 @@ call cpu_time(begin)
 do while(t.lt.t_max)
    do i=1,n     ! run the velocity-Verlet algorithm...
       if(outside(i)) continue
+
       vhx(i)=vx(i)+0.5d0*ax(i)*dt
       vhy(i)=vy(i)+0.5d0*ay(i)*dt
+
       x(i)=x(i)+vhx(i)*dt
       y(i)=y(i)+vhy(i)*dt
 
-      do j=1,n
-	call impose_BC(j)
-      end do
+      call impose_BC(i)
+
+      ! --- trajectory logging for selected particles
+      if (i == 1) write(20,*) t, x(i), y(i)
+      if (i == 2) write(21,*) t, x(i), y(i)
+
+
+      if (.not. outside(i)) then
+        if ( x(i) > 0.5d0*L .or. x(i) < -0.5d0*L .or. & y(i) > 0.5d0*L .or. y(i) < -0.5d0*L ) then
+           print *, "ERROR: particle outside but not flagged", i, x(i), y(i)
+        stop
+        end if
+      end if
+
       
       ax(i)=0d0                   ! Add forces here if any
       ay(i)=0d0                   ! Add forces here if any
 
-      call random_number(ran1)
+      call random_number(ran1) 
       ran1=ran1-0.5d0
       call random_number(ran2)
       ran2=ran2-0.5d0
