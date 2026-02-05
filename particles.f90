@@ -127,45 +127,60 @@ call initialize_particles
 
 call cpu_time(begin)
 
-do while(t.lt.t_max)
-   do i=1,n     ! run the velocity-Verlet algorithm...
-      if(outside(i)) continue
+do while (t < t_max)
 
-      vhx(i)=vx(i)+0.5d0*ax(i)*dt
-      vhy(i)=vy(i)+0.5d0*ay(i)*dt
+   do i = 1, n
+      if (outside(i)) cycle
 
-      x(i)=x(i)+vhx(i)*dt
-      y(i)=y(i)+vhy(i)*dt
+      ! --- half-step velocities
+      vhx(i) = vx(i) + 0.5d0*ax(i)*dt
+      vhy(i) = vy(i) + 0.5d0*ay(i)*dt
 
+      ! --- position update
+      x(i) = x(i) + vhx(i)*dt
+      y(i) = y(i) + vhy(i)*dt
+
+      ! --- impose boundary conditions
       call impose_BC(i)
 
-      ! --- trajectory logging for selected particles
+      ! =====================================================
+      ! TEST 1: particle must be inside box or flagged outside
+      ! =====================================================
+      if (.not. outside(i)) then
+         if (abs(x(i)) > 0.5d0*L .or. abs(y(i)) > 0.5d0*L) then
+            print *, "BC ERROR:"
+            print *, " i =", i
+            print *, " t =", t
+            print *, " x,y =", x(i), y(i)
+            print *, " vhx,vhy =", vhx(i), vhy(i)
+            stop
+         end if
+      end if
+      ! =====================================================
+
+      ! --- trajectory logging (debug)
       if (i == 1) write(20,*) t, x(i), y(i)
       if (i == 2) write(21,*) t, x(i), y(i)
 
+      ! --- reset accelerations
+      ax(i) = 0d0
+      ay(i) = 0d0
 
-      if (.not. outside(i)) then
-        if ( x(i) > 0.5d0*L .or. x(i) < -0.5d0*L .or. & y(i) > 0.5d0*L .or. y(i) < -0.5d0*L ) then
-           print *, "ERROR: particle outside but not flagged", i, x(i), y(i)
-        stop
-        end if
-      end if
-
-      
-      ax(i)=0d0                   ! Add forces here if any
-      ay(i)=0d0                   ! Add forces here if any
-
-      call random_number(ran1) 
-      ran1=ran1-0.5d0
+      ! --- Langevin forces (drag + noise)
+      call random_number(ran1)
+      ran1 = ran1 - 0.5d0
       call random_number(ran2)
-      ran2=ran2-0.5d0
-      ax(i)=ax(i)-pref1*vhx(i)+pref2*ran1
-      ay(i)=ay(i)-pref1*vhy(i)+pref2*ran2
-      
-      vx(i)=vhx(i)+0.5d0*ax(i)*dt
-      vy(i)=vhy(i)+0.5d0*ay(i)*dt
+      ran2 = ran2 - 0.5d0
+
+      ax(i) = ax(i) - pref1*vhx(i) + pref2*ran1
+      ay(i) = ay(i) - pref1*vhy(i) + pref2*ran2
+
+      ! --- full-step velocities
+      vx(i) = vhx(i) + 0.5d0*ax(i)*dt
+      vy(i) = vhy(i) + 0.5d0*ay(i)*dt
    end do
-   t=t+dt
+
+   t = t + dt
    write(12,*) t,sqrt(sum((x-x0)**2+(y-y0)**2)/real(n,8))
 end do
 
