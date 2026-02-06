@@ -114,6 +114,7 @@ open(12,file='means')
 ! Open trajectory files (for debugging / testing)
 open(20, file="traj_1.dat", status="replace")
 open(21, file="traj_2.dat", status="replace")
+open(22, file="traj_3.dat", status="replace")
 
 ! Allocate arrays
 allocate(x(n),y(n),vx(n),vy(n),ax(n),ay(n),vhx(n),vhy(n),x0(n),y0(n),outside(n))
@@ -161,6 +162,7 @@ do while (t < t_max)
       ! --- trajectory logging (debug)
       if (i == 1) write(20,*) t, x(i), y(i)
       if (i == 2) write(21,*) t, x(i), y(i)
+      if (i == 3) write(22,*) t, x(i), y(i)
 
       ! --- reset accelerations
       ax(i) = 0d0
