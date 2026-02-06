@@ -11,7 +11,7 @@ module Langevin
 use globals
 implicit none
 logical, allocatable, dimension(:) :: outside
-double precision :: dt,kT,g,m                   ! time step size and physical parameters
+double precision :: dt,kT,g,m, sigma,eps,rc                   ! time step size and physical parameters
 double precision :: pref1,pref2                 ! auxiliary parameters
 double precision :: x_trial, y_trial
 double precision, allocatable, dimension(:) :: x,y,vx,vy,ax,ay,vhx,vhy,x0,y0 ! particle positions, accellerations, velocities, half-step velocities, initial positions
@@ -25,11 +25,14 @@ kT=1d0    ! energy
 !kT = 0d0
 g=1d0     ! drag coefficient
 m=1d0     ! mass of the particles, can be normalized to 1.
+sigma=1d-3     ! potentil parameters (sigma, eps, rc)
+eps=1d0
+rc=sigma*2d8**(1d0/6d0) ! effective particle size
 
 ! Set auxiliary parameters
 pref1=g
-!pref2=sqrt(24d0*kT*g/dt)
-pref2=0d0
+pref2=sqrt(24d0*kT*g/dt)
+!pref2=0d0
 
 end subroutine set_parameters
 subroutine initialize_particles
@@ -108,8 +111,8 @@ use globals
 use Langevin
 use BC
 implicit none
-integer :: i
-double precision :: t,t_max,ran1,ran2,m1,m2
+integer :: i, j
+double precision :: t,t_max,ran1,ran2,m1,m2, dij, rx, ry, F
 double precision :: wtime,begin,end
 
 ! Open files
@@ -132,6 +135,12 @@ call initialize_particles
 
 call cpu_time(begin)
 
+! conclusion we need ot re order the loop like this:
+! a. update half step velocities
+! b. update positions 
+! c. compute accellerations
+! d. update all velocities
+! now we can compare the positions to whats happening now and not the time step in the past...? I think.
 do while (t < t_max)
 
    do i = 1, n
@@ -143,7 +152,7 @@ do while (t < t_max)
 
 
       ! ======================================
-      ! OVERSHOOT TEST (BEFORE APPLYING BC)
+      ! TEST 2: OVERSHOOT TEST (BEFORE APPLYING BC)
       ! ======================================
       !x_trial = x(i) + vhx(i)*dt
       !y_trial = y(i) + vhy(i)*dt
@@ -197,11 +206,25 @@ do while (t < t_max)
       ax(i) = ax(i) - pref1*vhx(i) + pref2*ran1
       ay(i) = ay(i) - pref1*vhy(i) + pref2*ran2
 
+      do j=1,n
+         if (j.ne.i) then
+	   rx=x(j)-x(i)
+	   ry=y(j)-x(j)
+           dij=sqrt((x(i)-x(j))**2+(y(i)-y(j))**2)
+           if(dij.lt.rc) then
+             write(13,*) x(i), y(i)
+	     print *, "interaction detected at t=",x(i), y(i)
+	     F=4d0*eps*(-12d0*sigma**12/dij**13+6D0*sigma**6/dij**7)
+	     ax(i)=ax(i)+F*rx/(dij*m)
+	     ay(i)=ay(i)+F*ry/(dij*m)
+	  end if
+	end if
+      end do
       ! --- full-step velocities
       vx(i) = vhx(i) + 0.5d0*ax(i)*dt
       vy(i) = vhy(i) + 0.5d0*ay(i)*dt
+      write(11,*) x(i),y(i)
    end do
-
    t = t + dt
    write(12,*) t,sqrt(sum((x-x0)**2+(y-y0)**2)/real(n,8))
 end do
