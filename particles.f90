@@ -28,8 +28,8 @@ m=1d0     ! mass of the particles, can be normalized to 1.
 
 ! Set auxiliary parameters
 pref1=g
-pref2=sqrt(24d0*kT*g/dt)
-!pref2=0d0
+!pref2=sqrt(24d0*kT*g/dt)
+pref2=0d0
 
 end subroutine set_parameters
 subroutine initialize_particles
