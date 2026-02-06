@@ -1,7 +1,7 @@
 module globals
 ! Global variables
 implicit none
-integer :: n=10                               ! number of particles
+integer :: n=100                               ! number of particles
 double precision, parameter :: pi=2q0*asin(1q0) ! numerical constant
 double precision, parameter :: L=1.0d0
 end module globals
@@ -13,21 +13,23 @@ implicit none
 logical, allocatable, dimension(:) :: outside
 double precision :: dt,kT,g,m                   ! time step size and physical parameters
 double precision :: pref1,pref2                 ! auxiliary parameters
+double precision :: x_trial, y_trial
 double precision, allocatable, dimension(:) :: x,y,vx,vy,ax,ay,vhx,vhy,x0,y0 ! particle positions, accellerations, velocities, half-step velocities, initial positions
 contains
 subroutine set_parameters
 
 ! Set time step and physical parameters
 dt=0.01d0 ! time step size
-!kT=1d0    ! energy
-kT = 0d0
+!dt=1.0d0
+kT=1d0    ! energy
+!kT = 0d0
 g=1d0     ! drag coefficient
 m=1d0     ! mass of the particles, can be normalized to 1.
 
 ! Set auxiliary parameters
 pref1=g
-!pref2=sqrt(24d0*kT*g/dt)
-pref2=0d0
+pref2=sqrt(24d0*kT*g/dt)
+!pref2=0d0
 
 end subroutine set_parameters
 subroutine initialize_particles
@@ -138,6 +140,22 @@ do while (t < t_max)
       ! --- half-step velocities
       vhx(i) = vx(i) + 0.5d0*ax(i)*dt
       vhy(i) = vy(i) + 0.5d0*ay(i)*dt
+
+
+      ! ======================================
+      ! OVERSHOOT TEST (BEFORE APPLYING BC)
+      ! ======================================
+      !x_trial = x(i) + vhx(i)*dt
+      !y_trial = y(i) + vhy(i)*dt
+
+      !if (abs(x_trial) > 0.5d0*L .or. abs(y_trial) > 0.5d0*L) then
+      !   print *, "OVERSHOOT DETECTED:"
+      !   print *, " i =", i
+      !   print *, " t =", t
+      !   print *, " x_trial,y_trial =", x_trial, y_trial
+      !   print *, " vhx,vhy =", vhx(i), vhy(i)
+      !end if
+      ! ======================================
 
       ! --- position update
       x(i) = x(i) + vhx(i)*dt
