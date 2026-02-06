@@ -19,13 +19,15 @@ subroutine set_parameters
 
 ! Set time step and physical parameters
 dt=0.01d0 ! time step size
-kT=1d0    ! energy
+!kT=1d0    ! energy
+kT = 0d0
 g=1d0     ! drag coefficient
 m=1d0     ! mass of the particles, can be normalized to 1.
 
 ! Set auxiliary parameters
 pref1=g
-pref2=sqrt(24d0*kT*g/dt)
+!pref2=sqrt(24d0*kT*g/dt)
+pref2=0d0
 
 end subroutine set_parameters
 subroutine initialize_particles
