@@ -127,6 +127,7 @@ double precision :: wtime,begin,end
 ! Open files
 open(11,file="positions.dat",status="replace")
 open(12,file='means')
+open(14,file="interactions.dat",status="replace")
 
 ! Open trajectory files (for debugging / testing)
 open(20, file="traj_1.dat", status="replace")
@@ -203,20 +204,21 @@ do while (t < t_max)
       ay = 0d0
 
       ! --- Pair interactions
-      do i = 1,n-1
-         do j = i+1,n
+      do i = 1,n
+         do j = i,n
              rx=x(j)-x(i)
              ry=y(j)-y(i)
              dij=sqrt(rx*rx + ry*ry)
 
              if(dij.lt.rc) then
                F=4d0*eps*(-12d0*sigma**12/dij**13 + 6D0*sigma**6/dij**7)
-
+               write(14,*) x(i), y(i)
+               print *, "interaction detected at t=",x(i), y(i)
                ax(i)=ax(i)+F*rx/(dij*m)
                ay(i)=ay(i)+F*ry/(dij*m)
 
-               ax(j)=ax(j)-F*rx/(dij*m)
-               ay(j)=ay(j)-F*ry/(dij*m)
+               !ax(j)=ax(j)-F*rx/(dij*m)
+               !ay(j)=ay(j)-F*ry/(dij*m)
 
              end if
         end do
@@ -259,6 +261,7 @@ deallocate(x,y,vx,vy,ax,ay,vhx,vhy,x0,y0,outside)
 ! Close files
 close(11)
 close(12)
+close(14)
 close(20)
 close(21)
 close(22)
