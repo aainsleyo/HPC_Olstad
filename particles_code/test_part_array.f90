@@ -20,20 +20,19 @@ contains
 subroutine set_parameters
 
 ! Set time step and physical parameters
-dt=0.005d0 ! time step size
+dt=0.01d0 ! time step size
 kT=1d0    ! energy
 g=1d0     ! drag coefficient
 m=1d0     ! mass of the particles, can be normalized to 1.
 
 ! CORRECTED: Use reasonable sigma for interactions
-sigma=0.03d0     ! potential parameters (was 1d-3, now 50x larger!)
+sigma=1d-3    
 eps=1d0
-rc=sigma*2d0**(1d0/6d0) ! effective particle size ≈ 0.056
+rc=sigma*24d0**(1d0/6d0)
 
 ! Set auxiliary parameters
 pref1=g
-! CORRECTED: Match the noise level that gave good results
-pref2=sqrt(2d0*kT*g/dt)  ! Was sqrt(2*kT*g/dt) - now 3.46x stronger
+pref2=sqrt(2d0*kT*g/dt) 
 
 print *, "Parameters set:"
 print *, "  sigma =", sigma

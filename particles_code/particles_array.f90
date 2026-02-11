@@ -26,9 +26,9 @@ kT=1d0    ! energy
 g=1d0     ! drag coefficient
 m=1d0     ! mass of the particles, can be normalized to 1.
 
-sigma=1d-3     ! potentil parameters (sigma, eps, rc)
+sigma=0.05d0     ! potentil parameters (sigma, eps, rc)
 eps=1d0
-rc=sigma*2d8**(1d0/6d0) ! effective particle size
+rc=sigma*24d8**(1d0/6d0) ! effective particle size
 
 ! Set auxiliary parameters
 pref1=g
@@ -197,7 +197,7 @@ do while (t < t_max)
       end if
    end do
    ! =====================================================
-
+      
       ! --- reset accelerations
       ax = 0d0
       ay = 0d0
@@ -205,14 +205,12 @@ do while (t < t_max)
       ! --- Pair interactions
       do i = 1,n-1
          do j = i+1,n
-
              rx=x(j)-x(i)
              ry=y(j)-y(i)
-             dij=sqrt(rx*rx+ry*ry)
+             dij=sqrt(rx*rx + ry*ry)
 
              if(dij.lt.rc) then
-
-               F=4d0*eps*(-12d0*sigma**12/dij**13+6D0*sigma**6/dij**7)
+               F=4d0*eps*(-12d0*sigma**12/dij**13 + 6D0*sigma**6/dij**7)
 
                ax(i)=ax(i)+F*rx/(dij*m)
                ay(i)=ay(i)+F*ry/(dij*m)
