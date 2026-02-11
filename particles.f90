@@ -209,7 +209,7 @@ do while (t < t_max)
       do j=1,n
          if (j.ne.i) then
 	   rx=x(j)-x(i)
-	   ry=y(j)-x(j)
+	   ry=y(j)-y(i)
            dij=sqrt((x(i)-x(j))**2+(y(i)-y(j))**2)
            if(dij.lt.rc) then
              write(13,*) x(i), y(i)

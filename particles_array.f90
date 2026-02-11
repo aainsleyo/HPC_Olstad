@@ -112,6 +112,7 @@ implicit none
 integer :: i, j
 double precision :: t,t_max,ran1,ran2,m1,m2, dij, rx, ry, F
 double precision :: wtime,begin,end
+double precision, allocatable :: ran1, ran2
 
 ! Open files
 open(12,file='means')
@@ -201,17 +202,18 @@ do while (t < t_max)
       ax = ax - pref1*vhx + pref2*ran1
       ay = ay - pref1*vhy + pref2*ran2
 
-      do j=1,n
-         if (j.ne.i) then
-	   rx=x(j)-x(i)
-	   ry=y(j)-x(j)
-           dij=sqrt((x(i)-x(j))**2+(y(i)-y(j))**2)
-           if(dij.lt.rc) then
-             write(13,*) x(i), y(i)
-	     print *, "interaction detected at t=",x(i), y(i)
-	     F=4d0*eps*(-12d0*sigma**12/dij**13+6D0*sigma**6/dij**7)
-	     ax(i)=ax(i)+F*rx/(dij*m)
-	     ay(i)=ay(i)+F*ry/(dij*m)
+      do i=1,n
+         do j=1,n
+           if (j.ne.i) then
+	     rx=x(j)-x(i)
+	     ry=y(j)-y(i)
+             dij=sqrt((x(i)-x(j))**2+(y(i)-y(j))**2)
+             if(dij.lt.rc) then
+               write(13,*) x(i), y(i)
+	       print *, "interaction detected at t=",x(i), y(i)
+	       F=4d0*eps*(-12d0*sigma**12/dij**13+6D0*sigma**6/dij**7)
+	       ax(i)=ax(i)+F*rx/(dij*m)
+	       ay(i)=ay(i)+F*ry/(dij*m)
 	  end if
 	end if
       end do
