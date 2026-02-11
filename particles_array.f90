@@ -32,8 +32,8 @@ rc=sigma*2d8**(1d0/6d0) ! effective particle size
 
 ! Set auxiliary parameters
 pref1=g
-pref2=sqrt(24d0*kT*g/dt)
-
+pref2=sqrt(2d0*kT*g/dt)
+!pref2=sqrt(24d0*kT*g/dt)
 end subroutine set_parameters
 
 subroutine initialize_particles
@@ -217,8 +217,8 @@ do while (t < t_max)
                ax(i)=ax(i)+F*rx/(dij*m)
                ay(i)=ay(i)+F*ry/(dij*m)
 
-               ax(j)=ax(j)+F*rx/(dij*m)
-               ay(j)=ay(j)+F*ry/(dij*m)
+               ax(j)=ax(j)-F*rx/(dij*m)
+               ay(j)=ay(j)-F*ry/(dij*m)
 
              end if
         end do
