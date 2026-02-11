@@ -11,20 +11,21 @@ module Langevin
 use globals
 implicit none
 logical, allocatable, dimension(:) :: outside
-double precision :: dt,kT,g,m, sigma,eps,rc                   ! time step size and physical parameters
+double precision :: dt,kT,g,m                   ! time step size and physical parameters
+double precision :: sigma,eps,rc                ! additional parameters
 double precision :: pref1,pref2                 ! auxiliary parameters
 double precision :: x_trial, y_trial
 double precision, allocatable, dimension(:) :: x,y,vx,vy,ax,ay,vhx,vhy,x0,y0 ! particle positions, accellerations, velocities, half-step velocities, initial positions
 contains
+
 subroutine set_parameters
 
 ! Set time step and physical parameters
 dt=0.01d0 ! time step size
-!dt=1.0d0
 kT=1d0    ! energy
-!kT = 0d0
 g=1d0     ! drag coefficient
 m=1d0     ! mass of the particles, can be normalized to 1.
+
 sigma=1d-3     ! potentil parameters (sigma, eps, rc)
 eps=1d0
 rc=sigma*2d8**(1d0/6d0) ! effective particle size
@@ -32,27 +33,37 @@ rc=sigma*2d8**(1d0/6d0) ! effective particle size
 ! Set auxiliary parameters
 pref1=g
 pref2=sqrt(24d0*kT*g/dt)
-!pref2=0d0
 
 end subroutine set_parameters
+
 subroutine initialize_particles
 integer :: i
-double precision :: ran1(n),ran2(n),gr1,gr2
+double precision :: ran1,ran2,gr1,gr2
+
 ! Give particles initial position and velocity
-call random_number(ran1)                       ! uses the built-in PRNG, easy but not very accurate
-call random_number(ran2)
-x=L*(ran1-0.5d0)
-x0=x
-y=L*(ran2-0.5d0)
-y0=y
-ax=0d0
-ay=0d0
-call random_number(ran1)
-call random_number(ran2)
-gr1=sqrt(kT/(m))*sqrt(-2*log(ran1))*cos(2*pi*ran2) ! Box-Mueller transform
-gr2=sqrt(kT/(m))*sqrt(-2*log(ran1))*sin(2*pi*ran2)
-vx=gr1
-vy=gr2
+do i = 1,n
+	call random_number(ran1)                       ! uses the built-in PRNG, easy but not very accurate
+	call random_number(ran2)
+
+	x(i)=L*(ran1-0.5d0)
+	y(i)=L*(ran2-0.5d0)
+	
+	x0(i) = x(i)
+	y0(i) = y(i)
+
+	ax=0d0
+	ay=0d0
+
+	call random_number(ran1)
+	call random_number(ran2)
+
+	gr1=sqrt(kT/(m))*sqrt(-2*log(ran1))*cos(2*pi*ran2) ! Box-Mueller transform
+	gr2=sqrt(kT/(m))*sqrt(-2*log(ran1))*sin(2*pi*ran2)
+	
+	vx(i)=gr1
+	vy(i)=gr2
+
+end do
 
 end subroutine initialize_particles
 end module Langevin
@@ -112,9 +123,9 @@ implicit none
 integer :: i, j
 double precision :: t,t_max,ran1,ran2,m1,m2, dij, rx, ry, F
 double precision :: wtime,begin,end
-double precision, allocatable :: ran1, ran2
 
 ! Open files
+open(11,file="positions.dat",status="replace")
 open(12,file='means')
 
 ! Open trajectory files (for debugging / testing)
@@ -141,15 +152,14 @@ call cpu_time(begin)
 ! d. update all velocities
 ! now we can compare the positions to whats happening now and not the time step in the past...? I think.
 do while (t < t_max)
-
+       
+   ! --- Half-step velocities
    vhx = vx + 0.5d0*ax*dt
    vhy = vy + 0.5d0*ay*dt
+
+   ! --- Position Update
    x = x + vhx*dt
    y = y + vhy*dt
-
-   do i = 1, n
-      if (outside(i)) then
-
 
       ! ======================================
       ! TEST 2: OVERSHOOT TEST (BEFORE APPLYING BC)
@@ -166,74 +176,93 @@ do while (t < t_max)
       !end if
       ! ======================================
 
-      ! --- impose boundary conditions
+   ! --- impose boundary conditions
+   do i = 1,n
       call impose_BC(i)
+   end do
 
-      ! =====================================================
-      ! TEST 1: particle must be inside box or flagged outside
-      ! =====================================================
+   ! =====================================================
+   ! TEST 1: particle must be inside box or flagged outside
+   ! =====================================================
+   do i = 1,n
       if (.not. outside(i)) then
-         if (abs(x) > 0.5d0*L .or. abs(y) > 0.5d0*L) then
+         if (abs(x(i)) > 0.5d0*L .or. abs(y(i)) > 0.5d0*L) then
             print *, "BC ERROR:"
             print *, " i =", i
             print *, " t =", t
-            print *, " x,y =", x, y
-            print *, " vhx,vhy =", vhx, vhy
+            print *, " x,y =", x(i), y(i)
+            print *, " vhx,vhy =", vhx(i), vhy(i)
             stop
          end if
       end if
-      ! =====================================================
-
-      ! --- trajectory logging (debug)
-      if (i == 1) write(20,*) t, x(i), y(i)
-      if (i == 2) write(21,*) t, x(i), y(i)
-      if (i == 3) write(22,*) t, x(i), y(i)
+   end do
+   ! =====================================================
 
       ! --- reset accelerations
-      ax(i) = 0d0
-      ay(i) = 0d0
+      ax = 0d0
+      ay = 0d0
 
-      ! --- Langevin forces (drag + noise)
+      ! --- Pair interactions
+      do i = 1,n-1
+         do j = i+1,n
+
+             rx=x(j)-x(i)
+             ry=y(j)-y(i)
+             dij=sqrt(rx*rx+ry*ry)
+
+             if(dij.lt.rc) then
+
+               F=4d0*eps*(-12d0*sigma**12/dij**13+6D0*sigma**6/dij**7)
+
+               ax(i)=ax(i)+F*rx/(dij*m)
+               ay(i)=ay(i)+F*ry/(dij*m)
+
+               ax(j)=ax(j)+F*rx/(dij*m)
+               ay(j)=ay(j)+F*ry/(dij*m)
+
+             end if
+        end do
+      end do
+
+   ! --- Langevin forces (drag + noise)
+   do i=1,n
+      
       call random_number(ran1)
       ran1 = ran1 - 0.5d0
       call random_number(ran2)
       ran2 = ran2 - 0.5d0
 
-      ax = ax - pref1*vhx + pref2*ran1
-      ay = ay - pref1*vhy + pref2*ran2
+      ax(i) = ax(i) - pref1*vhx(i) + pref2*ran1
+      ay(i) = ay(i) - pref1*vhy(i) + pref2*ran2
 
-      do i=1,n
-         do j=1,n
-           if (j.ne.i) then
-	     rx=x(j)-x(i)
-	     ry=y(j)-y(i)
-             dij=sqrt((x(i)-x(j))**2+(y(i)-y(j))**2)
-             if(dij.lt.rc) then
-               write(13,*) x(i), y(i)
-	       print *, "interaction detected at t=",x(i), y(i)
-	       F=4d0*eps*(-12d0*sigma**12/dij**13+6D0*sigma**6/dij**7)
-	       ax(i)=ax(i)+F*rx/(dij*m)
-	       ay(i)=ay(i)+F*ry/(dij*m)
-	  end if
-	end if
-      end do
-      ! --- full-step velocities
-      vx = vhx + 0.5d0*ax*dt
-      vy = vhy + 0.5d0*ay*dt
-   do i=1,n
-      write(11,*) x(i),y(i)
+
    end do
+
+   ! --- full-step velocities
+   vx = vhx + 0.5d0*ax*dt
+   vy = vhy + 0.5d0*ay*dt
+
+   ! --- Diagnostics
+   write(11,*) (x(i),y(i), i=1,n)
+   write(12,*) t, sqrt(sum((x-x0)**2+(y-y0)**2)/real(n,8))
+
+   if (n>=1) write(20,*) t,x(1),y(1)
+   if (n>=2) write(21,*) t,x(2),y(2)
+   if (n>=3) write(22,*) t,x(3),y(3)  
+
    t = t + dt
-   write(12,*) t,sqrt(sum((x-x0)**2+(y-y0)**2)/real(n,8))
 end do
 
 call cpu_time(end)
 print *,'Wtime=',end-begin
 
 ! De-allocate arrays
-deallocate(x,y,vx,vy,ax,ay,x0,y0,outside)
+deallocate(x,y,vx,vy,ax,ay,vhx,vhy,x0,y0,outside)
 ! Close files
 close(11)
 close(12)
+close(20)
+close(21)
+close(22)
 
 end program main
