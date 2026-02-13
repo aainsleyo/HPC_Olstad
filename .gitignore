@@ -1,2 +1,9 @@
+# Simulation output
+*.dat
+trajectories
+means
+testing
+a.out
+*.mod
 *.exe
 *.o
