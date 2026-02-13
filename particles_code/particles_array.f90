@@ -137,6 +137,12 @@ do while(t.lt.t_max)
    do j=1,n
       call impose_BC(j)
    end do
+
+   ! --- Do the particles stay inside the box? ---
+   if(abs(x(i)) > L/2 .or. abs(y(i)) > L/2) then
+      print *, "BOUNDARY ERROR"
+      stop
+   end if
       
    ax=0d0                   ! Add forces here if any
    ay=0d0                   ! Add forces here if any
@@ -149,6 +155,7 @@ do while(t.lt.t_max)
    ax=ax-pref1*vhx+pref2*ran1
    ay=ay-pref1*vhy+pref2*ran2
 
+   !$omp parallel do private(j,rx,ry,dij,F)
    do i=1,n
       do j=1,n
          if(j.ne.i) then
@@ -165,6 +172,7 @@ do while(t.lt.t_max)
          end if
       end do
    end do
+   !$omp end parallel do
    vx=vhx+0.5d0*ax*dt
    vy=vhy+0.5d0*ay*dt
 
