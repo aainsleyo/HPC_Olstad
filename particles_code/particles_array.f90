@@ -111,6 +111,7 @@ double precision, allocatable, dimension(:) :: ran1,ran2
 open(11,file='trajectories')
 open(12,file='means')
 open(13,file='testing')
+open(15,file='velocities')
 
 ! Allocate arrays
 allocate(x(n),y(n),vx(n),vy(n),ax(n),ay(n),vhx(n),vhy(n),x0(n),y0(n),is_tracked(n),ran1(n),ran2(n))
@@ -138,11 +139,13 @@ do while(t.lt.t_max)
       call impose_BC(j)
    end do
 
-   ! --- Do the particles stay inside the box? ---
-   if(abs(x(i)) > L/2 .or. abs(y(i)) > L/2) then
-      print *, "BOUNDARY ERROR"
-      stop
-   end if
+   do i=1,n
+      if(abs(x(i)) > L/2 .or. abs(y(i)) > L/2) then
+        print *, "BOUNDARY ERROR"
+        stop
+      end if
+   end do
+
       
    ax=0d0                   ! Add forces here if any
    ay=0d0                   ! Add forces here if any
@@ -156,17 +159,20 @@ do while(t.lt.t_max)
    ay=ay-pref1*vhy+pref2*ran2
 
    !$omp parallel do private(j,rx,ry,dij,F)
-   do i=1,n
-      do j=1,n
+   do i=1,n-1
+      do j=i+1,n
          if(j.ne.i) then
             rx=x(j)-x(i)
             ry=y(j)-y(i)
             dij=sqrt(rx**2 + ry**2)
             if(dij.lt.rc) then
-               write(13,*) x(i),y(i)
                print *,'interaction detected at t=',t,' (x,y)=',x(i),y(i)
                F=4d0*eps*( -12d0*sigma**12/dij**13 + 6D0* sigma**6/dij**7 )
+               
+               !$omp atomic
                ax(i)=ax(i)+F*rx/(dij*m)
+               
+               !$omp atomic
                ay(i)=ay(i)+F*ry/(dij*m)
             end if
          end if
@@ -177,7 +183,15 @@ do while(t.lt.t_max)
    vy=vhy+0.5d0*ay*dt
 
    do i=1,n
+      write(13,*) x(i),y(i)
+   enddo
+
+   do i=1,n
       write(11,*) x(i),y(i)
+   enddo
+
+   do i=1,n
+      write(15,*) vx(i),vy(i)
    enddo
 
    t=t+dt
@@ -193,5 +207,6 @@ deallocate(x,y,vx,vy,ax,ay,x0,y0,is_tracked,ran1,ran2)
 close(11)
 close(12)
 close(13)
+close(15)
 
 end program main
