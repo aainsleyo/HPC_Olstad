@@ -110,7 +110,7 @@ integer function assign_sector(px,py) result(idx)
      double_precision, intent(in) :: px,py
      integer :: ix,iy
      
-     !dervice M from interaction radius
+     !derive M from interaction radius
      M = floor(L/rc)
 
      !shift coordinates, then bin by cell width rc
