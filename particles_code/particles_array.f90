@@ -97,6 +97,36 @@ contains
    end subroutine impose_BC
 end module BC
 
+module sector
+!funcion that gives x&y -> index sector
+use globals
+implicit none
+integer :: M
+
+contains
+integer function assign_sector(px,py) result(idx)
+     !assigns a particle to a sector index
+     !0-indexed, typewriter style
+     double_precision, intent(in) :: px,py
+     integer :: ix,iy
+     
+     !dervice M from interaction radius
+     M = floor(L/rc)
+
+     !shift coordinates, then bin by cell width rc
+     ix = floor((px+L/2.0d0) / rc)
+     iy = floor((L/2.0d0 -py) / rc)
+
+     !Clamp to [0,M-1] to handle particles exactly on the boundary
+     ix = min(max(ix,0),M-1)
+     iy = min(max(iy,0),M-1)
+
+     idx = iy*M+ix
+
+   end function assign_sector
+
+end module sector
+
 program main
 use globals
 use Langevin
@@ -110,7 +140,6 @@ double precision, allocatable, dimension(:) :: ran1,ran2
 ! Open files
 open(11,file='trajectories')
 open(12,file='means')
-open(13,file='testing')
 open(15,file='velocities')
 
 ! Allocate arrays
@@ -181,10 +210,6 @@ do while(t.lt.t_max)
    !$omp end parallel do
    vx=vhx+0.5d0*ax*dt
    vy=vhy+0.5d0*ay*dt
-
-   do i=1,n
-      write(13,*) x(i),y(i)
-   enddo
 
    do i=1,n
       write(11,*) x(i),y(i)
