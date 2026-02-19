@@ -6,14 +6,15 @@ module sectors
 
 contains
    ! intakes coordinates and outputs index
-   integer function coord_to_cell(px, py) result(idx)
+   integer function indexfxn(px, py) result(idx)
       double precision, intent(in) :: px, py
       integer :: ix, iy
 
       ! the sector size      
       M = floor(L / rc)
 
-      ! coordinate + half length of box divided by effective particle size
+      ! coordinate + half length of boundary [-L/2,L/2] -> [0,L] 
+      ! divided by effective particle size to give coordinate
       ix = floor((px + L/2.0d0) / rc)
       iy = floor((py + L/2.0d0) / rc)
 
@@ -21,9 +22,9 @@ contains
       ix = min(max(ix, 0), M-1)
       iy = min(max(iy, 0), M-1)
 
-      ! standard 2D-to-1D mapping for typewriter order (row major order)
-      idx = iy * M + ix
+      ! call rey's function
+      idx = ! call rey's function
 
-   end function coord_to_cell
+   end function indexfxn
 
 end module sectors
