@@ -6,7 +6,7 @@ program matrix
   double precision, allocatable :: A(:,:), B(:,:), C(:,:)
   double precision :: t0, t1, elapsed
 
-  n = 1024
+  n = 4096
 
   allocate(A(n,n), B(n,n), C(n,n))
 
