@@ -1,8 +1,5 @@
-integer :: n
-double precision :: L
-double precision :: rc
-integer :: Mmodule globals
 ! Global variables
+module globals
 implicit none
 integer :: n=100                               ! number of particles
 double precision :: L=10.0d0
@@ -18,12 +15,51 @@ end subroutine update_M
 
 end module globals
 
+!module griding
+module griding
+implicit none
+contains
+
+function TWOtoONE(x, y, box_size) result(id)
+    integer, intent(in) :: x, y, box_size
+    integer :: id
+    id = y * box_size + x
+end function TWOtoONE
+
+end module griding
+
+!module sectors
+module sectors
+use globals
+use griding
+implicit none
+contains
+
+integer function indexfxn(px, py) result(idx)
+
+    double precision, intent(in) :: px, py
+    integer :: ix, iy
+
+    ix = floor((px + L/2d0) / rc)
+    iy = floor((py + L/2d0) / rc)
+
+    if (ix < 0 .or. ix >= M .or. iy < 0 .or. iy >= M) then
+        print *, "Sector error"
+        stop
+    end if
+
+    idx = TWOtoONE(ix, iy, M)
+
+end function indexfxn
+
+end module sectors
+
 module Langevin
 ! Initialization and update rule for Langevin particles
 use globals
 implicit none
 logical, allocatable, dimension(:) :: is_tracked
-double precision :: dt,kT,g,m,sigma,eps      ! time step size and physical parameters
+double precision :: dt,kT,g,mass,sigma,eps      ! time step size and physical parameters
 double precision :: pref1,pref2                 ! auxiliary parameters
 double precision, allocatable, dimension(:) :: x,y,vx,vy,ax,ay,vhx,vhy,x0,y0 ! particle positions, accellerations, velocities, half-step velocities, initial positions
 contains
@@ -117,6 +153,7 @@ program main
 use globals
 use Langevin
 use BC
+use sectors
 implicit none
 integer :: i,j
 double precision :: t,t_max,m1,m2,rx,ry,dij,F
@@ -185,7 +222,7 @@ do while(t.lt.t_max)
             ry=y(j)-y(i)
             dij=sqrt(rx**2 + ry**2)
             if(dij.lt.rc) then
-               print *,'interaction detected at t=',t,' (x,y)=',x(i),y(i)
+               !print *,'interaction detected at t=',t,' (x,y)=',x(i),y(i)
                F=4d0*eps*( -12d0*sigma**12/dij**13 + 6D0* sigma**6/dij**7 )
                
                !$omp atomic
