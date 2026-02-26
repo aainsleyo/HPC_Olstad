@@ -5,15 +5,15 @@ integer :: Mmodule globals
 ! Global variables
 implicit none
 integer :: n=100                               ! number of particles
-integer :: M                                   ! number of sectors per side
 double precision :: L=10.0d0
 double precision :: rc
+integer :: M                                   ! number of sectors per side
 double precision, parameter :: pi=2q0*asin(1q0) ! numerical constant
 
 contains
 
 subroutine update_M()
-    M=floor(L/rc)
+    M = floor(L/rc)
 end subroutine update_M
 
 end module globals
@@ -33,11 +33,11 @@ subroutine set_parameters
 dt=0.0001d0 ! time step size
 kT=1d0    ! energy
 g=1d0     ! drag coefficient
-m=1d0     ! mass of the particles, can be normalized to 1.
+mass=1d0     ! mass of the particles, can be normalized to 1.
 sigma=1d-3              ! Potential parameters
 eps=1d0
 rc= 2.0d0 !sigma*2d0**(1d0/6d0) ! Effective particle size
-call updateM()
+call update_M()
 
 ! Set auxiliary parameters
 pref1=g
@@ -59,8 +59,8 @@ double precision :: ran1(n),ran2(n),gr1(n),gr2(n)
    ay=0d0
    call random_number(ran1)
    call random_number(ran2)
-   gr1=sqrt(kT/(m))*sqrt(-2*log(ran1))*cos(2*pi*ran2) ! Box-Mueller transform
-   gr2=sqrt(kT/(m))*sqrt(-2*log(ran1))*sin(2*pi*ran2)
+   gr1=sqrt(kT/(mass))*sqrt(-2*log(ran1))*cos(2*pi*ran2) ! Box-Mueller transform
+   gr2=sqrt(kT/(mass))*sqrt(-2*log(ran1))*sin(2*pi*ran2)
    vx=gr1
    vy=gr2
 
@@ -110,6 +110,9 @@ contains
    end subroutine impose_BC
 end module BC
 
+!module reys here?
+!module sectors here?
+
 program main
 use globals
 use Langevin
@@ -134,6 +137,10 @@ t_max=0.1d0     ! integration time
 
 call set_parameters
 call initialize_particles
+
+print *, "L =", L
+print *, "rc =", rc
+print *, "M =", M
 
 call cpu_time(begin)
 
@@ -182,10 +189,10 @@ do while(t.lt.t_max)
                F=4d0*eps*( -12d0*sigma**12/dij**13 + 6D0* sigma**6/dij**7 )
                
                !$omp atomic
-               ax(i)=ax(i)+F*rx/(dij*m)
+               ax(i)=ax(i)+F*rx/(dij*mass)
                
                !$omp atomic
-               ay(i)=ay(i)+F*ry/(dij*m)
+               ay(i)=ay(i)+F*ry/(dij*mass)
             end if
          end if
       end do
@@ -215,9 +222,5 @@ deallocate(x,y,vx,vy,ax,ay,x0,y0,is_tracked,ran1,ran2)
 close(11)
 close(12)
 close(15)
-
-print *, "L =", L
-print *, "rc =", rc
-print *, "M =", M
 
 end program main
