@@ -1,9 +1,21 @@
-module globals
+integer :: n
+double precision :: L
+double precision :: rc
+integer :: Mmodule globals
 ! Global variables
 implicit none
 integer :: n=100                               ! number of particles
-double precision :: L=1.0d0
+integer :: M                                   ! number of sectors per side
+double precision :: L=10.0d0
+double precision :: rc
 double precision, parameter :: pi=2q0*asin(1q0) ! numerical constant
+
+contains
+
+subroutine update_M()
+    M=floor(L/rc)
+end subroutine update_M
+
 end module globals
 
 module Langevin
@@ -11,7 +23,7 @@ module Langevin
 use globals
 implicit none
 logical, allocatable, dimension(:) :: is_tracked
-double precision :: dt,kT,g,m,sigma,eps,rc      ! time step size and physical parameters
+double precision :: dt,kT,g,m,sigma,eps      ! time step size and physical parameters
 double precision :: pref1,pref2                 ! auxiliary parameters
 double precision, allocatable, dimension(:) :: x,y,vx,vy,ax,ay,vhx,vhy,x0,y0 ! particle positions, accellerations, velocities, half-step velocities, initial positions
 contains
@@ -24,7 +36,8 @@ g=1d0     ! drag coefficient
 m=1d0     ! mass of the particles, can be normalized to 1.
 sigma=1d-3              ! Potential parameters
 eps=1d0
-rc=sigma*2d0**(1d0/6d0) ! Effective particle size
+rc= 2.0d0 !sigma*2d0**(1d0/6d0) ! Effective particle size
+call updateM()
 
 ! Set auxiliary parameters
 pref1=g
@@ -201,7 +214,10 @@ deallocate(x,y,vx,vy,ax,ay,x0,y0,is_tracked,ran1,ran2)
 ! Close files
 close(11)
 close(12)
-close(13)
 close(15)
+
+print *, "L =", L
+print *, "rc =", rc
+print *, "M =", M
 
 end program main
