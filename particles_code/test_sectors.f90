@@ -31,6 +31,9 @@ integer function indexfxn(px,py) result(idx)
 
     ix = floor((px + L/2d0)/rc)
     iy = floor((py + L/2d0)/rc)
+    ix = min(max(ix, 0), M-1)
+    iy = min(max(iy, 0), M-1)
+
 
     if (ix < 0 .or. ix >= M .or. iy < 0 .or. iy >= M) then
         print *, "ERROR: Out of bounds"
@@ -53,8 +56,8 @@ integer :: idx
 call update_M()
 
 ! TEST PARTICLE
-px = 1.3d0
-py = -2.7d0
+px = 5.0d0 
+py = 0.0d0
 
 idx = indexfxn(px,py)
 

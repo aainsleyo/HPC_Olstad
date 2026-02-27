@@ -19,8 +19,8 @@ contains
       iy = floor((py + L/2.0d0) / rc)
 
       ! for particles on the boundary
-      !ix = min(max(ix, 0), M-1)
-      !iy = min(max(iy, 0), M-1)
+      ix = min(max(ix, 0), M-1)
+      iy = min(max(iy, 0), M-1)
       if (ix < 0 .or. ix >= M .or. iy < 0 .or. iy >= M) then
          print *, "ERROR: particle outside sector grid"
          print *, "px, py =", px, py
