@@ -119,7 +119,7 @@ use BC
 implicit none
 integer :: i,j,lim(0:b*b,2),s,ns,p1,p2,step
 double precision :: t,t_max,m1,m2,rx,ry,dij,F
-double precision :: wtime,begin,end
+double precision :: wtime,t_begin,t_end
 double precision, allocatable, dimension(:) :: ran1,ran2
 
 ! Open files
@@ -139,7 +139,7 @@ t_max=1.0d0     ! integration time
 call set_parameters
 call initialize_particles
 
-!begin = omp_get_wtime()
+t_begin = omp_get_wtime()
 !call cpu_time(begin)
 
 ! Conclusion: we need to re-order the loop like this:
@@ -155,8 +155,8 @@ do while(t.lt.t_max)
    do j=1,n
       call impose_BC(j)
    end do
-   ! order particles
-   call order(x,y,vx,vy,x0,y0,lim)
+   ! order particles   
+   !call order(x,y,vx,vy,x0,y0,lim)
 
 call order(x, y, vx, vy, x0, y0, lim)
 
@@ -219,7 +219,7 @@ call order(x, y, vx, vy, x0, y0, lim)
    write(12,*) t, sum(m*(vx**2+vy**2)/(2*n))
 end do
 
-!end = omp_get_wtime()
+t_end = omp_get_wtime()
 !call cpu_time(end)
 print *,'Wtime=',end-begin
 
