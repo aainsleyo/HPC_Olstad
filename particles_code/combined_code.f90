@@ -19,7 +19,7 @@ contains
 subroutine set_parameters
 
 ! Set time step and physical parameters
-dt=0.0001d0 ! time step size
+dt=0.00001d0 ! time step size
 kT=1d0    ! energy
 g=1d0     ! drag coefficient
 m=1d0     ! mass of the particles, can be normalized to 1.
@@ -112,12 +112,12 @@ contains
 end module BC
 
 program main
-  use globals
-  use domainDecomposition
+use globals
+use domainDecomposition
 use Langevin
 use BC
 implicit none
-integer :: i,j,lim(0:b*b,2),s,ns,p1,p2
+integer :: i,j,lim(0:b*b,2),s,ns,p1,p2,step
 double precision :: t,t_max,m1,m2,rx,ry,dij,F
 double precision :: wtime,begin,end
 double precision, allocatable, dimension(:) :: ran1,ran2
@@ -127,9 +127,6 @@ open(11,file='trajectories')
 open(12,file='means')
 open(13,file='testing')
 
-! Two particle test
-n = 2
-
 ! Allocate arrays
 allocate(x(n),y(n),vx(n),vy(n),ax(n),ay(n),vhx(n),vhy(n),x0(n),y0(n),is_tracked(n),ran1(n),ran2(n))
 
@@ -137,33 +134,13 @@ call buildNBL()
 
 is_tracked = .True.
 t=0d0
-t_max=0.1d0     ! integration time
+t_max=1.0d0     ! integration time
 
-!call set_parameters
-!call initialize_particles
-!Manual initialization
-x(1) = -rc * 0.6d0    
-x(2) =  rc * 0.6d0
-y(1) =  0d0
-y(2) =  0d0
-
-vx(1) =  1d0           ! approaching each other
-vx(2) = -1d0
-vy(1) =  0d0
-vy(2) =  0d0
-
-ax = 0d0
-ay = 0d0
-x0 = x
-y0 = y
-
+call set_parameters
+call initialize_particles
 
 !begin = omp_get_wtime()
 !call cpu_time(begin)
-
-! Test for the interactions:
-pref1 = 0d0
-pref2 = 0d0
 
 ! Conclusion: we need to re-order the loop like this:
 ! a. update half-step velocities
@@ -180,6 +157,9 @@ do while(t.lt.t_max)
    end do
    ! order particles
    call order(x,y,vx,vy,x0,y0,lim)
+
+call order(x, y, vx, vy, x0, y0, lim)
+
    ax=0d0                   ! Add forces here if any
    ay=0d0                   ! Add forces here if any
 
@@ -204,10 +184,10 @@ do while(t.lt.t_max)
                if(dij.lt.rc) then
                   F=4d0*eps*( -12d0*sigma**12/dij**13 + 6D0* sigma**6/dij**7 )
                  
-                  !omp atomic
+                  !$omp atomic
                   ax(p1)=ax(p1)+F*rx/(dij*m)
                   
-                  !omp atomic
+                  !$omp atomic
 		  ay(p1)=ay(p1)+F*ry/(dij*m)
                end if
             end do
@@ -222,14 +202,17 @@ do while(t.lt.t_max)
       write(11,*) x(i),y(i)
    enddo
 
-    ! j. Write detailed test diagnostics:
-    !    time | x1 x2 | vx1 vx2 | ax1 ax2 | separation | total KE
-    write(13,*) t, &
-                x(1), x(2), &
-                vx(1), vx(2), &
-                ax(1), ax(2), &
-                x(2)-x(1), &
-                0.5d0*m*(vx(1)**2 + vy(1)**2 + vx(2)**2 + vy(2)**2)
+    ! Only write every 100 steps
+    step = step + 1
+    if(mod(step, 1000) == 0) then
+      do i = 1, n
+        write(11,*) x(i), y(i)
+      end do
+      write(13,*) t, x(1), x(2), vx(1), vx(2), ax(1), ax(2), &
+                  x(2)-x(1), &
+                  0.5d0*m*(vx(1)**2 + vy(1)**2 + vx(2)**2 + vy(2)**2)
+      write(12,*) t, sum(m*(vx**2+vy**2)/(2*n))
+    end if
 
    t=t+dt
 !   write(12,*) t,sqrt(sum((x-x0)**2+(y-y0)**2)/real(n,8))
