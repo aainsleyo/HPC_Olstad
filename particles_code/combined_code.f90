@@ -2,7 +2,7 @@ module globals
 ! Global variables
 use omp_lib                                    ! help the compiler find the OMP libraries
 implicit none
-integer :: n=100                               ! number of particles
+integer :: n=500                               ! number of particles
 double precision :: L=1.0d0
 double precision, parameter :: pi=2q0*asin(1q0) ! numerical constant
 end module globals
@@ -60,7 +60,7 @@ module domainDecomposition
   use globals
   use Langevin
   implicit none
-  integer, parameter :: b=3
+  integer, parameter :: b=4
   integer :: nbl(0:b*b-1,9)
 contains
   include "neighbourlist.f90"
@@ -147,7 +147,11 @@ t_begin = omp_get_wtime()
 ! b. update positions
 ! c. compute accellerations/forces
 ! d. update all velocities
+!$omp parallel private(???)
 do while(t.lt.t_max)
+   ! one thread: writing to disk
+   ! one thread: fetch psuedo-random numbers
+   ! one thread: update velocity, position, impose BC
    vhx=vx+0.5d0*ax*dt
    vhy=vy+0.5d0*ay*dt
    x=x+vhx*dt
@@ -171,7 +175,7 @@ call order(x, y, vx, vy, x0, y0, lim)
    ax=ax-pref1*vhx+pref2*ran1
    ay=ay-pref1*vhy+pref2*ran2
 ! Our first attempt at parallelization of the code: run the computation of the distances and interaction forces on multiple threads:
-!$omp parallel do private(rx,ry,dij,F,j,i)
+!$omp do private(rx,ry,dij,F,ns)
    do s=0,b*b-1
       do ns=1,9
          if(nbl(s,ns).eq.-1) exit
@@ -194,13 +198,13 @@ call order(x, y, vx, vy, x0, y0, lim)
          end do
       end do
    end do
-!$omp end parallel do
+!$omp end do
    vx=vhx+0.5d0*ax*dt
    vy=vhy+0.5d0*ay*dt
 
-   do i=1,n
-      write(11,*) x(i),y(i)
-   enddo
+   !do i=1,n
+      !write(11,*) x(i),y(i)
+   !enddo
 
     ! Only write every 100 steps
     step = step + 1
@@ -216,12 +220,12 @@ call order(x, y, vx, vy, x0, y0, lim)
 
    t=t+dt
 !   write(12,*) t,sqrt(sum((x-x0)**2+(y-y0)**2)/real(n,8))
-   write(12,*) t, sum(m*(vx**2+vy**2)/(2*n))
+   !write(12,*) t, sum(m*(vx**2+vy**2)/(2*n))
 end do
-
+!$omp end parallel
 t_end = omp_get_wtime()
 !call cpu_time(end)
-print *,'Wtime=',end-begin
+print *,'Wtime=',t_end - t_begin
 
 ! De-allocate arrays
 deallocate(x,y,vx,vy,ax,ay,x0,y0,is_tracked,ran1,ran2)
