@@ -2,64 +2,25 @@
 module globals
 implicit none
 integer :: n=100                               ! number of particles
-double precision :: L=10.0d0
-double precision :: rc
-integer :: M                                   ! number of sectors per side
-double precision, parameter :: pi=2q0*asin(1q0) ! numerical constant
-
-contains
-
-subroutine update_M()
-    M = floor(L/rc)
-end subroutine update_M
-
+double precision :: L=1.0d0
+double precision, parameter :: pi=2q0*asin(1q0) ! numerical constants
 end module globals
 
-!module griding
-module griding
-implicit none
+module decomposition
+  implicit none
+  integer :: B = 4
+  integer :: nbl(b*b.90)
 contains
+  include "neighborlist.f90" !connor's + rey's code
 
-function TWOtoONE(x, y, box_size) result(id)
-    integer, intent(in) :: x, y, box_size
-    integer :: id
-    id = y * box_size + x
-end function TWOtoONE
 
-end module griding
-
-!module sectors
-module sectors
-use globals
-use griding
-implicit none
-contains
-
-integer function indexfxn(px, py) result(idx)
-
-    double precision, intent(in) :: px, py
-    integer :: ix, iy
-
-    ix = floor((px + L/2d0) / rc)
-    iy = floor((py + L/2d0) / rc)
-
-    if (ix < 0 .or. ix >= M .or. iy < 0 .or. iy >= M) then
-        print *, "Sector error"
-        stop
-    end if
-
-    idx = TWOtoONE(ix, iy, M)
-
-end function indexfxn
-
-end module sectors
 
 module Langevin
 ! Initialization and update rule for Langevin particles
 use globals
 implicit none
 logical, allocatable, dimension(:) :: is_tracked
-double precision :: dt,kT,g,mass,sigma,eps      ! time step size and physical parameters
+double precision :: dt,kT,g,mass,sigma,eps,rc      ! time step size and physical parameters
 double precision :: pref1,pref2                 ! auxiliary parameters
 double precision, allocatable, dimension(:) :: x,y,vx,vy,ax,ay,vhx,vhy,x0,y0 ! particle positions, accellerations, velocities, half-step velocities, initial positions
 contains
