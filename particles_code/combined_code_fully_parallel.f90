@@ -148,65 +148,112 @@ t_begin = omp_get_wtime()
 ! c. compute accellerations/forces
 ! d. update all velocities
 
-do while(t.lt.t_max)
-   ! one thread: writing to disk
-   ! one thread: fetch psuedo-random numbers
-   ! one thread: update velocity, position, impose Bc
+!$omp parallel num_threads(4)
+!$omp single
+do while(t .lt. t_max)
 
-   !$omp parallel sections num_threads(3) private(ran1,ran2,j,i,rx,ry,dij,F,ns,s,p1,p2)
-
-   !$omp section
-   ! Thread 0: I/O
-   do i=1,n
-      write(11,*) x(i), y(i)
-   end do
-   write(12,*) t, sum(m*(vx**2+vy**2)/(2*n))
-
-   !$omp section
-   ! Thread 1: RNG prefetch
-   call random_number(ran1)
-   ran1 = ran1 - 0.5d0
-   call random_number(ran2)
-   ran2 = ran2 - 0.5d0
-
-   !$omp section
-   ! Thread 2: physics + forces
+   !----------------------------------------------------------------
+   ! STAGE 1: Half-step velocity + position update (single thread)
+   !----------------------------------------------------------------
+   !$omp task depend(out: vhx, vhy, x, y)
    vhx = vx + 0.5d0*ax*dt
    vhy = vy + 0.5d0*ay*dt
    x   = x  + vhx*dt
    y   = y  + vhy*dt
-   do j=1,n
+   !$omp end task
+
+   !----------------------------------------------------------------
+   ! STAGE 2a: Boundary conditions (depends on positions)
+   ! STAGE 2b: Fetch random numbers (independent — runs concurrently)
+   !----------------------------------------------------------------
+   !$omp task depend(inout: x, y, vhx, vhy)
+   do j = 1, n
       call impose_BC(j)
    end do
-   call order(x,y,vx,vy,x0,y0,lim)
+   !$omp end task
+
+   !$omp task depend(out: ran1, ran2)   ! truly independent
+   call random_number(ran1)
+   ran1 = ran1 - 0.5d0
+   call random_number(ran2)
+   ran2 = ran2 - 0.5d0
+   !$omp end task
+
+   !----------------------------------------------------------------
+   ! STAGE 3: Sort particles (depends on BC-corrected positions)
+   !----------------------------------------------------------------
+   !$omp task depend(in: x, y, vhx, vhy) depend(out: lim)
+   call order(x, y, vx, vy, x0, y0, lim)
+   !$omp end task
+
+   !----------------------------------------------------------------
+   ! STAGE 4: Zero accelerations, apply drag + noise
+   ! (depends on positions, velocities, random numbers)
+   !----------------------------------------------------------------
+   !$omp task depend(in: x, y, vhx, vhy, ran1, ran2) depend(out: ax, ay)
    ax = -pref1*vhx + pref2*ran1
    ay = -pref1*vhy + pref2*ran2
-   do s=0,b*b-1
-      do ns=1,9
-         if(nbl(s,ns).eq.-1) exit
-         do p1=lim(s,1),lim(s,2)
-            do p2=lim(nbl(s,ns),1),lim(nbl(s,ns),2)
-               if(p1.eq.p2) cycle
-               rx=x(p2)-x(p1)
-               ry=y(p2)-y(p1)
-               dij=sqrt(rx**2+ry**2)
-               if(dij.lt.rc) then
-                  F=4d0*eps*(-12d0*sigma**12/dij**13 &
-                            + 6d0*sigma**6/dij**7)
-                  ax(p1)=ax(p1)+F*rx/(dij*m)
-                  ay(p1)=ay(p1)+F*ry/(dij*m)
+   !$omp end task
+
+   !----------------------------------------------------------------
+   ! STAGE 5: Pairwise LJ forces — parallelised with taskloop
+   ! (depends on sorted lim, positions, ax/ay zeroed above)
+   !----------------------------------------------------------------
+   !$omp task depend(in: lim, x, y) depend(inout: ax, ay)
+   !$omp taskloop grainsize(1) private(rx, ry, dij, F, ns, p1, p2)
+   do s = 0, b*b-1
+      do ns = 1, 9
+         if (nbl(s,ns) .eq. -1) exit
+         do p1 = lim(s,1),  lim(s,2)
+            do p2 = lim(nbl(s,ns),1), lim(nbl(s,ns),2)
+               if (p1 .eq. p2) cycle
+               rx  = x(p2) - x(p1)
+               ry  = y(p2) - y(p1)
+               dij = sqrt(rx**2 + ry**2)
+               if (dij .lt. rc) then
+                  F = 4d0*eps*(-12d0*sigma**12/dij**13 &
+                             +  6d0*sigma**6 /dij**7 )
+                  !$omp atomic
+                  ax(p1) = ax(p1) + F*rx/(dij*m)
+                  !$omp atomic
+                  ay(p1) = ay(p1) + F*ry/(dij*m)
                end if
             end do
          end do
       end do
    end do
+   !$omp end taskloop
+   !$omp end task
+
+   !----------------------------------------------------------------
+   ! STAGE 6: Full velocity update (depends on final ax, ay)
+   !----------------------------------------------------------------
+   !$omp task depend(in: ax, ay, vhx, vhy) depend(out: vx, vy)
    vx = vhx + 0.5d0*ax*dt
    vy = vhy + 0.5d0*ay*dt
-   step = step + 1
-   t = t + dt
+   !$omp end task
 
-!$omp end parallel sections
+   !----------------------------------------------------------------
+   ! STAGE 7: I/O — runs concurrently with NEXT iteration's stage 1+2b
+   ! if the scheduler is smart enough; depend(in:) keeps it safe
+   !----------------------------------------------------------------
+   step = step + 1
+   if (mod(step, 1000) == 0) then
+      !$omp task depend(in: x, y, vx, vy, ax, ay) if(mod(step,1000)==0)
+      do i = 1, n
+         write(11,*) x(i), y(i)
+      end do
+      write(13,*) t, x(1), x(2), vx(1), vx(2), ax(1), ax(2), &
+                  x(2)-x(1), &
+                  0.5d0*m*(vx(1)**2 + vy(1)**2 + vx(2)**2 + vy(2)**2)
+      write(12,*) t, sum(m*(vx**2+vy**2)/(2*n))
+      !$omp end task
+   end if
+
+   t = t + dt
 end do
+!$omp end single
+!$omp end parallel
 
 t_end = omp_get_wtime()
 !call cpu_time(end)
