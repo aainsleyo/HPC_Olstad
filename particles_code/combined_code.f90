@@ -147,7 +147,8 @@ t_begin = omp_get_wtime()
 ! b. update positions
 ! c. compute accellerations/forces
 ! d. update all velocities
-!$omp parallel private(???)
+
+!$omp parallel private(vhx,vhy,ran1,ran2,j)
 do while(t.lt.t_max)
    ! one thread: writing to disk
    ! one thread: fetch psuedo-random numbers
