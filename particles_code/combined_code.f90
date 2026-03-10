@@ -136,7 +136,7 @@ is_tracked = .True.
 t=0d0
 t_max=1.0d0     ! integration time
 Tint = 0.01d0
-TsinceWrite = 0d0d0
+TsinceWrite = 0d0
 step = 0
 
 call set_parameters
@@ -151,7 +151,7 @@ t_begin = omp_get_wtime()
 ! c. compute accellerations/forces
 ! d. update all velocities
 
-!$omp parallel private(i,j,s,ns.p1,p2,rx,ry,dij,F)
+!$omp parallel private(i,j,s,ns,p1,p2,rx,ry,dij,F)
 do while(t.lt.t_max)
    ! one thread: writing to disk
    ! one thread: fetch psuedo-random numbers
@@ -162,13 +162,14 @@ do while(t.lt.t_max)
    vxscrap=vx
    vyscrap=vy
 
+   !$omp sections
    !$omp section private()
    ! Thread 1
    if(tSinceWrite.gt.Tint) then
    do i=1,n
-      write(11,*) x(i), y(i)
+      write(11,*) scrapx(i), scrapy(i)
    end do
-   write(12,*) t, sum(m*(vx**2+vy**2)/(2*n))
+   write(12,*) t, sum(m*(vxscrap**2+vyscrap**2)/(2*n))
    TsinceWrite = 0d0
    end if
 
@@ -201,7 +202,7 @@ do while(t.lt.t_max)
 
    ax = -pref1*vhx + pref2*ran1
    ay = -pref1*vhy + pref2*ran2
-
+   !$omp end single
    !$omp do private(ns,p1,p2,rx,ry,dij,F)
    do s=0,b*b-1
       do ns=1,9
