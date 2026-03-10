@@ -4,7 +4,7 @@ use omp_lib                                    ! help the compiler find the OMP 
 implicit none
 integer :: n=1000                               ! number of particles
 double precision :: L=1.0d0
-double precision, parameter :: pi=2q0*asin(1q0) ! numerical constant
+double precision, parameter :: pi=2.0d0*asin(1.0d0) ! numerical constant
 end module globals
 
 module Langevin
@@ -79,36 +79,36 @@ contains
      !> Recall we are inside an LxL box centered at the origin
 
      !> Top boundary
-     if(y(i) .GT. L/2) then
+     do while (y(i) .GT. L/2)
          y(i) = L - y(i) 
          vhy(i) = -vhy(i)
-     end if
+     end do
 
      !> Left boundary
-     if(x(i) .LT. -L/2) then
+     do while(x(i) .LT. -L/2)
          x(i) = -L - x(i) 
          vhx(i) = -vhx(i)
-     end if
+     end do
 
      !> Bottom boundary
-     if(y(i) .LT. -L/2) then
+     do while(y(i) .LT. -L/2)
          y(i) = -L - y(i)
          vhy(i) = -vhy(i)
-     end if
+     end do
 
      !> Right boundary
-     if(x(i) .GT. L/2) then
+     do while(x(i) .GT. L/2)
          x(i) = L - x(i)
          vhx(i) = -vhx(i)
-     end if
+     end do
 
      !> Final check
      if(abs(x(i)).GT.L/2 .OR. abs(y(i)).GT.L/2) then
          !> Particle is still outside, don't track it
          is_tracked(i) = .FALSE.
-     endif
-
-   end subroutine impose_BC
+         write(*,*) 'WARNING', x(i), y(i)
+     end if
+end subroutine impose_BC
 end module BC
 
 program main
@@ -118,8 +118,8 @@ use Langevin
 use BC
 implicit none
 integer :: i,j,lim(0:b*b,2),s,ns,p1,p2,step
-double precision :: t,t_max,m1,m2,rx,ry,dij,F
-double precision :: wtime,t_begin,t_end,Tint
+double precision :: t,t_max,m1,m2,rx,ry,dij,F, scrapx, scrapy, vxscrap, vyscrap
+double precision :: wtime,t_begin,t_end,Tint,TsinceWrite
 double precision, allocatable, dimension(:) :: ran1,ran2
 
 ! Open files
@@ -128,7 +128,7 @@ open(12,file='means')
 open(13,file='testing')
 
 ! Allocate arrays
-allocate(x(n),y(n),vx(n),vy(n),ax(n),ay(n),vhx(n),vhy(n),x0(n),y0(n),is_tracked(n),ran1(n),ran2(n))
+allocate(x(n),y(n),vx(n),vy(n),ax(n),ay(n),vhx(n),vhy(n),x0(n),y0(n),is_tracked(n),ran1(n),ran2(n), scrapx(n), scrapy(n), vxscrap(n), vyscrap(n))
 
 call buildNBL()
 
@@ -136,7 +136,8 @@ is_tracked = .True.
 t=0d0
 t_max=1.0d0     ! integration time
 Tint = 0.01d0
-TsinceWrtie = 0d0
+TsinceWrite = 0d0d0
+step = 0
 
 call set_parameters
 call initialize_particles
@@ -150,7 +151,7 @@ t_begin = omp_get_wtime()
 ! c. compute accellerations/forces
 ! d. update all velocities
 
-!$omp parallel private( )
+!$omp parallel private(i,j,s,ns.p1,p2,rx,ry,dij,F)
 do while(t.lt.t_max)
    ! one thread: writing to disk
    ! one thread: fetch psuedo-random numbers
@@ -168,7 +169,8 @@ do while(t.lt.t_max)
       write(11,*) x(i), y(i)
    end do
    write(12,*) t, sum(m*(vx**2+vy**2)/(2*n))
-   tSinceWrite
+   TsinceWrite = 0d0
+   end if
 
    !$omp section
    ! Thread 2
@@ -213,7 +215,9 @@ do while(t.lt.t_max)
                if(dij.lt.rc) then
                   F=4d0*eps*(-12d0*sigma**12/dij**13 &
                             + 6d0*sigma**6/dij**7)
+                  !$omp atomic
                   ax(p1)=ax(p1)+F*rx/(dij*m)
+                  !$omp atomic
                   ay(p1)=ay(p1)+F*ry/(dij*m)
                end if
             end do
@@ -226,11 +230,12 @@ do while(t.lt.t_max)
    vx = vhx + 0.5d0*ax*dt
    vy = vhy + 0.5d0*ay*dt
    t = t + dt 
-   tSinceWrite=tSinceWrite + 1
+   step = step + 1
+   tSinceWrite=tSinceWrite + dt
    !$omp end single
 
 end do
-
+!$omp end parallel
 t_end = omp_get_wtime()
 !call cpu_time(end)
 print *,'Wtime=',t_end - t_begin
