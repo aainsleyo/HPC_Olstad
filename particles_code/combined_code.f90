@@ -2,7 +2,7 @@ module globals
 ! Global variables
 use omp_lib                                    ! help the compiler find the OMP libraries
 implicit none
-integer :: n=500                               ! number of particles
+integer :: n=1000                               ! number of particles
 double precision :: L=1.0d0
 double precision, parameter :: pi=2q0*asin(1q0) ! numerical constant
 end module globals
@@ -60,7 +60,7 @@ module domainDecomposition
   use globals
   use Langevin
   implicit none
-  integer, parameter :: b=4
+  integer, parameter :: b=10
   integer :: nbl(0:b*b-1,9)
 contains
   include "neighbourlist.f90"
@@ -119,7 +119,7 @@ use BC
 implicit none
 integer :: i,j,lim(0:b*b,2),s,ns,p1,p2,step
 double precision :: t,t_max,m1,m2,rx,ry,dij,F
-double precision :: wtime,t_begin,t_end
+double precision :: wtime,t_begin,t_end,Tint
 double precision, allocatable, dimension(:) :: ran1,ran2
 
 ! Open files
@@ -135,6 +135,8 @@ call buildNBL()
 is_tracked = .True.
 t=0d0
 t_max=1.0d0     ! integration time
+Tint = 0.01d0
+TsinceWrtie = 0d0
 
 call set_parameters
 call initialize_particles
@@ -148,39 +150,57 @@ t_begin = omp_get_wtime()
 ! c. compute accellerations/forces
 ! d. update all velocities
 
+!$omp parallel private( )
 do while(t.lt.t_max)
    ! one thread: writing to disk
    ! one thread: fetch psuedo-random numbers
    ! one thread: update velocity, position, impose Bc
 
-   !$omp parallel sections num_threads(3) private(ran1,ran2,j,i,rx,ry,dij,F,ns,s,p1,p2)
+   scrapx=x
+   scrapy=y
+   vxscrap=vx
+   vyscrap=vy
 
-   !$omp section
-   ! Thread 0: I/O
+   !$omp section private()
+   ! Thread 1
+   if(tSinceWrite.gt.Tint) then
    do i=1,n
       write(11,*) x(i), y(i)
    end do
    write(12,*) t, sum(m*(vx**2+vy**2)/(2*n))
+   tSinceWrite
 
    !$omp section
-   ! Thread 1: RNG prefetch
+   ! Thread 2
    call random_number(ran1)
    ran1 = ran1 - 0.5d0
    call random_number(ran2)
    ran2 = ran2 - 0.5d0
 
    !$omp section
-   ! Thread 2: physics + forces
+   ! Thread 3
    vhx = vx + 0.5d0*ax*dt
    vhy = vy + 0.5d0*ay*dt
    x   = x  + vhx*dt
    y   = y  + vhy*dt
+
    do j=1,n
       call impose_BC(j)
    end do
+
    call order(x,y,vx,vy,x0,y0,lim)
+   
+   ax=0d0      !add any forces here
+   ay=0d0      !add any forces here
+
+   !$omp end sections
+   !$omp flush
+   !$omp single
+
    ax = -pref1*vhx + pref2*ran1
    ay = -pref1*vhy + pref2*ran2
+
+   !$omp do private(ns,p1,p2,rx,ry,dij,F)
    do s=0,b*b-1
       do ns=1,9
          if(nbl(s,ns).eq.-1) exit
@@ -200,12 +220,15 @@ do while(t.lt.t_max)
          end do
       end do
    end do
+   !$omp end do
+
+   !$omp single
    vx = vhx + 0.5d0*ax*dt
    vy = vhy + 0.5d0*ay*dt
-   step = step + 1
-   t = t + dt
+   t = t + dt 
+   tSinceWrite=tSinceWrite + 1
+   !$omp end single
 
-!$omp end parallel sections
 end do
 
 t_end = omp_get_wtime()

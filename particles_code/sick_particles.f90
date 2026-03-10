@@ -60,10 +60,10 @@ module domainDecomposition
   use globals
   use Langevin
   implicit none
-  integer, parameter :: b=4
+  integer, parameter :: b=10
   integer :: nbl(0:b*b-1,9)
 contains
-  include "neighbourlist.f90"
+  include "neighbourList.f90"
   include "putParticleInBox.f90"
   include "sortParticles.f90"
 end module domainDecomposition
@@ -112,14 +112,14 @@ contains
 end module BC
 
 program main
-use globals
-use domainDecomposition
+  use globals
+  use domainDecomposition
 use Langevin
 use BC
 implicit none
-integer :: i,j,lim(0:b*b,2),s,ns,p1,p2,step
+integer :: i,j,lim(0:b*b,2),s,ns,p1,p2
 double precision :: t,t_max,m1,m2,rx,ry,dij,F
-double precision :: wtime,t_begin,t_end
+double precision :: wtime,begin,end
 double precision, allocatable, dimension(:) :: ran1,ran2
 
 ! Open files
@@ -134,13 +134,17 @@ call buildNBL()
 
 is_tracked = .True.
 t=0d0
-t_max=1.0d0     ! integration time
+t_max=0.1d0     ! integration time
 
 call set_parameters
 call initialize_particles
 
-t_begin = omp_get_wtime()
+begin = omp_get_wtime()
 !call cpu_time(begin)
+
+! Test for the interactions:
+pref1 = 0d0
+pref2 = 0d0
 
 ! Conclusion: we need to re-order the loop like this:
 ! a. update half-step velocities
@@ -148,22 +152,11 @@ t_begin = omp_get_wtime()
 ! c. compute accellerations/forces
 ! d. update all velocities
 
-!$omp parallel private( )
+!$omp parallel private(???)
 do while(t.lt.t_max)
-
-   !$omp section ???
-   !$omp section  !write to disk
-   do i=1,n
-      write(11,*) x(i),y(i)
-   enddo
-
-   write(12,*) t,sqrt(sum((x-x0)**2+(y-y0)**2)/real(n,8))
-   !write(12,*) t, sum(m*(vx**2+vy**2)/(2*n))
-   
-   !$omp section
-   !$omp section
-   !$omp end sections
-
+   ! one thread: writing to disk
+   ! one thread: fetch pseudo-random numbers
+   ! one thread: update velocity, position, impose BC
    vhx=vx+0.5d0*ax*dt
    vhy=vy+0.5d0*ay*dt
    x=x+vhx*dt
@@ -171,11 +164,8 @@ do while(t.lt.t_max)
    do j=1,n
       call impose_BC(j)
    end do
-   ! order particles   
-   !call order(x,y,vx,vy,x0,y0,lim)
-
-   call order(x, y, vx, vy, x0, y0, lim)
-
+   ! order particles
+   call order(x,y,vx,vy,x0,y0,lim)
    ax=0d0                   ! Add forces here if any
    ay=0d0                   ! Add forces here if any
 
@@ -187,25 +177,22 @@ do while(t.lt.t_max)
    ax=ax-pref1*vhx+pref2*ran1
    ay=ay-pref1*vhy+pref2*ran2
 ! Our first attempt at parallelization of the code: run the computation of the distances and interaction forces on multiple threads:
-!$omp do private(rx,ry,dij,F,ns)
+!$omp do private(ns,p1,p2,rx,ry,dij,F)
    do s=0,b*b-1
       do ns=1,9
          if(nbl(s,ns).eq.-1) exit
          do p1=lim(s,1),lim(s,2)
-            do p2
-=lim(ns,1),lim(ns,2)
+            do p2=lim(ns,1),lim(ns,2)
                if(p1.eq.p2) cycle
                rx=x(p2)-x(p1)
                ry=y(p2)-y(p1)
                dij=sqrt(rx**2 + ry**2)
                if(dij.lt.rc) then
                   F=4d0*eps*( -12d0*sigma**12/dij**13 + 6D0* sigma**6/dij**7 )
-                 
                   !$omp atomic
                   ax(p1)=ax(p1)+F*rx/(dij*m)
-                  
                   !$omp atomic
-		  ay(p1)=ay(p1)+F*ry/(dij*m)
+                  ay(p1)=ay(p1)+F*ry/(dij*m)
                end if
             end do
          end do
@@ -215,31 +202,19 @@ do while(t.lt.t_max)
    vx=vhx+0.5d0*ax*dt
    vy=vhy+0.5d0*ay*dt
 
-   !do i=1,n
-      !write(11,*) x(i),y(i)
-   !enddo
-
-    ! Only write every 100 steps
-    step = step + 1
-    !if(mod(step, 1000) == 0) then
-   !   do i = 1, n
-   !     write(11,*) x(i), y(i)
-   !   end do
-   !   write(13,*) t, x(1), x(2), vx(1), vx(2), ax(1), ax(2), &
-   !               x(2)-x(1), &
-   !               0.5d0*m*(vx(1)**2 + vy(1)**2 + vx(2)**2 + vy(2)**2)
-   !   write(12,*) t, sum(m*(vx**2+vy**2)/(2*n))
-   ! end if
+   do i=1,n
+      write(11,*) x(i),y(i)
+   enddo
 
    t=t+dt
 !   write(12,*) t,sqrt(sum((x-x0)**2+(y-y0)**2)/real(n,8))
-   !write(12,*) t, sum(m*(vx**2+vy**2)/(2*n))
+   write(12,*) t, sum(m*(vx**2+vy**2)/(2*n))
 end do
-!$omp parallel end
+!$omp end parallel
 
-t_end = omp_get_wtime()
-ssh -p 2222 aolstad@claim.science.ontariotechu.ca!call cpu_time(end)
-print *,'Wtime=',t_end - t_begin
+end = omp_get_wtime()
+!call cpu_time(end)
+print *,'Wtime=',end-begin
 
 ! De-allocate arrays
 deallocate(x,y,vx,vy,ax,ay,x0,y0,is_tracked,ran1,ran2)
