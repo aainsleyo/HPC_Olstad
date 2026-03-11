@@ -2,7 +2,7 @@ module globals
 ! Global variables
 use omp_lib                                    ! help the compiler find the OMP libraries
 implicit none
-integer :: n=1000                               ! number of particles
+integer :: n=100                               ! number of particles
 double precision :: L=1.0d0
 double precision, parameter :: pi=2.0d0*asin(1.0d0) ! numerical constant
 end module globals
@@ -23,7 +23,7 @@ dt=0.00001d0 ! time step size
 kT=1d0    ! energy
 g=1d0     ! drag coefficient
 m=1d0     ! mass of the particles, can be normalized to 1.
-sigma=1d-3              ! Potential parameters
+sigma= 0.01d0 !1d-3              ! Potential parameters
 eps=1d0
 rc=sigma*2d0**(1d0/6d0) ! Effective particle size
 
@@ -33,9 +33,25 @@ pref2=sqrt(24d0*kT*g/dt)
 
 end subroutine set_parameters
 subroutine initialize_particles
-integer :: i
+integer :: i, ix, iy, idx
+integer :: ngrid
+double precision :: spacing
 double precision :: ran1(n),ran2(n),gr1(n),gr2(n)
 ! Give particles initial position and velocity
+
+!Grid Init
+   ngrid   = ceiling(sqrt(real(n, 8)))           ! e.g. n=1000 -> ngrid=32
+   spacing = L / real(ngrid, 8)                  ! gap between grid points
+
+   idx = 1
+   outer: do iy = 0, ngrid-1
+     do ix = 0, ngrid-1
+        if (idx .gt. n) exit outer
+        x(idx) = -L/2.0d0 + (real(ix, 8) + 0.5d0) * spacing
+        y(idx) = -L/2.0d0 + (real(iy, 8) + 0.5d0) * spacing
+        idx = idx + 1
+     end do
+    end do outer
 
    call random_seed()
    call random_number(ran1)                       ! uses the built-in PRNG, easy but not very accurate
@@ -106,7 +122,7 @@ contains
      if(abs(x(i)).GT.L/2 .OR. abs(y(i)).GT.L/2) then
          !> Particle is still outside, don't track it
          is_tracked(i) = .FALSE.
-         write(*,*) 'WARNING', x(i), y(i)
+         !write(*,*) 'WARNING', x(i), y(i)
      end if
 end subroutine impose_BC
 end module BC
@@ -118,9 +134,9 @@ use Langevin
 use BC
 implicit none
 integer :: i,j,lim(0:b*b,2),s,ns,p1,p2,step
-double precision :: t,t_max,m1,m2,rx,ry,dij,F, scrapx, scrapy, vxscrap, vyscrap
+double precision :: t,t_max,m1,m2,rx,ry,dij,F
 double precision :: wtime,t_begin,t_end,Tint,TsinceWrite
-double precision, allocatable, dimension(:) :: ran1,ran2
+double precision, allocatable, dimension(:) :: ran1,ran2, scrapx, scrapy, vxscrap, vyscrap
 
 ! Open files
 open(11,file='trajectories')
@@ -157,13 +173,15 @@ do while(t.lt.t_max)
    ! one thread: fetch psuedo-random numbers
    ! one thread: update velocity, position, impose Bc
 
+   !$omp single
    scrapx=x
    scrapy=y
    vxscrap=vx
    vyscrap=vy
+   !$omp end single
 
    !$omp sections
-   !$omp section private()
+   !$omp section
    ! Thread 1
    if(tSinceWrite.gt.Tint) then
    do i=1,n
@@ -242,7 +260,7 @@ t_end = omp_get_wtime()
 print *,'Wtime=',t_end - t_begin
 
 ! De-allocate arrays
-deallocate(x,y,vx,vy,ax,ay,x0,y0,is_tracked,ran1,ran2)
+deallocate(x,y,vx,vy,ax,ay,x0,y0,is_tracked,ran1,ran2, scrapx, scrapy, vxscrap, vyscrap)
 ! Close files
 close(11)
 close(12)
