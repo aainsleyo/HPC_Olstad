@@ -209,7 +209,7 @@ do while(t.lt.t_max)
       call impose_BC(j)
    end do
 
-   call order(x,y,vx,vy,x0,y0,lim)
+   call order(x,y,vx,vy,x0,y0,vhx,vhy,lim)
    
    ax=0d0      !add any forces here
    ay=0d0      !add any forces here
@@ -223,8 +223,9 @@ do while(t.lt.t_max)
    !$omp end single
    !$omp do private(ns,p1,p2,rx,ry,dij,F)
    do s=0,b*b-1
-      do ns=1,9
+      do i=1,9
          if(nbl(s,ns).eq.-1) exit
+         ns=nbl(s,i)
          do p1=lim(s,1),lim(s,2)
             do p2=lim(nbl(s,ns),1),lim(nbl(s,ns),2)
                if(p1.eq.p2) cycle
@@ -255,8 +256,10 @@ do while(t.lt.t_max)
 
 end do
 !$omp end parallel
+
 t_end = omp_get_wtime()
 !call cpu_time(end)
+
 print *,'Wtime=',t_end - t_begin
 
 ! De-allocate arrays
