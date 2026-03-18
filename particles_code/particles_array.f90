@@ -1,18 +1,10 @@
 ! Global variables
 module globals
 implicit none
-integer :: n=100                               ! number of particles
+integer :: n=50                               ! number of particles
 double precision :: L=1.0d0
 double precision, parameter :: pi=2q0*asin(1q0) ! numerical constants
 end module globals
-
-module decomposition
-  implicit none
-  integer :: B = 4
-  integer :: nbl(b*b.90)
-contains
-  include "neighborlist.f90" !connor's + rey's code
-
 
 
 module Langevin
@@ -27,14 +19,13 @@ contains
 subroutine set_parameters
 
 ! Set time step and physical parameters
-dt=0.0001d0 ! time step size
+dt=0.00001d0 ! time step size
 kT=1d0    ! energy
 g=1d0     ! drag coefficient
 mass=1d0     ! mass of the particles, can be normalized to 1.
 sigma=1d-3              ! Potential parameters
 eps=1d0
-rc= 2.0d0 !sigma*2d0**(1d0/6d0) ! Effective particle size
-call update_M()
+rc= sigma*2d0**(1d0/6d0) ! Effective particle size
 
 ! Set auxiliary parameters
 pref1=g
@@ -107,14 +98,10 @@ contains
    end subroutine impose_BC
 end module BC
 
-!module reys here?
-!module sectors here?
-
 program main
 use globals
 use Langevin
 use BC
-use sectors
 implicit none
 integer :: i,j
 double precision :: t,t_max,m1,m2,rx,ry,dij,F
@@ -135,10 +122,6 @@ t_max=0.1d0     ! integration time
 
 call set_parameters
 call initialize_particles
-
-print *, "L =", L
-print *, "rc =", rc
-print *, "M =", M
 
 call cpu_time(begin)
 
@@ -175,7 +158,6 @@ do while(t.lt.t_max)
    ax=ax-pref1*vhx+pref2*ran1
    ay=ay-pref1*vhy+pref2*ran2
 
-   !$omp parallel do private(j,rx,ry,dij,F)
    do i=1,n-1
       do j=i+1,n
          if(j.ne.i) then
@@ -185,17 +167,12 @@ do while(t.lt.t_max)
             if(dij.lt.rc) then
                !print *,'interaction detected at t=',t,' (x,y)=',x(i),y(i)
                F=4d0*eps*( -12d0*sigma**12/dij**13 + 6D0* sigma**6/dij**7 )
-               
-               !$omp atomic
-               ax(i)=ax(i)+F*rx/(dij*mass)
-               
-               !$omp atomic
+               ax(i)=ax(i)+F*rx/(dij*mass) 
                ay(i)=ay(i)+F*ry/(dij*mass)
             end if
          end if
       end do
    end do
-   !$omp end parallel do
    vx=vhx+0.5d0*ax*dt
    vy=vhy+0.5d0*ay*dt
 
@@ -212,7 +189,8 @@ do while(t.lt.t_max)
 end do
 
 call cpu_time(end)
-print *,'Wtime=',end-begin
+!print *,'Wtime=',end-begin
+print *, n, end-begin
 
 ! De-allocate arrays
 deallocate(x,y,vx,vy,ax,ay,x0,y0,is_tracked,ran1,ran2)
