@@ -3,7 +3,7 @@ use globals
 use auxiliary
 implicit none
 logical :: start(1:num_procs-1)
-integer :: seed,ierr,recvd=0,worker,exit_tags_sent,tag,ndat,p,failed
+integer :: seed,ierr,recvd=0,worker,exit_tags_sent,tag,ndat,p,failed,schur_used
 integer, dimension(mpi_status_size) :: status
 double precision :: buf
 double precision, allocatable, dimension(:) :: eigs
@@ -18,7 +18,9 @@ allocate(eigs(ndat))
 start=.true.
 exit_tags_sent=0
 failed=0
+schur_used=0
 open(22,file='eigs')
+open(23,file='stats')
 
 ! Receive data until at least ndat have been received
 do while(.true.)
@@ -46,34 +48,36 @@ do while(.true.)
    worker = status(MPI_SOURCE)
    tag = status(MPI_TAG)
    if(tag.eq.0) then
-      recvd=recvd+1
-      eigs(recvd)=buf
-      !print *. "eig"
-      write(22,'(i4,e14.7)') worker,buf
+     recvd=recvd+1
+     eigs(recvd)=buf
+     write(22,'(i4,e14.7)') worker,buf
    else
-      failed=failed+1
-      print '(i5,a7,i5,a8)',recvd,' received, ',failed,' failed'
+     failed=failed+1
+     schur_used=schur_used+1
+     print '(i5,a7,i5,a8)',recvd,' received, ',failed,' failed'
    end if
    start(worker)=.true.
 end do
 
+write(23,'(a,i5)') 'Total eigenvalues collected: ', recvd
+write(23,'(a,i5)') 'Power method converged:      ', recvd-schur_used
+write(23,'(a,i5)') 'Schur fallback used:         ', schur_used
+write(23,'(a,f6.2,a)') 'Schur fallback rate:         ', &
+      100.0*schur_used/real(recvd),' %'
+close(23)
 close(22)
 
 deallocate(eigs)
 return
 end subroutine manager
 
+! instead of hard coding, read in from file to shell script
 subroutine init(ndat)
 use globals
 implicit none
 integer :: ndat
-
-! Matrix dimension and sample size.. hard-coded now, but can be read from command line or file...
-!read(*,*) n
-!read(*,*) ndat
-
-n=500
-ndat=1000
-
-return
+open(10, file='input.txt')
+read(10,*) n
+read(10,*) ndat
+close(10)
 end subroutine init
