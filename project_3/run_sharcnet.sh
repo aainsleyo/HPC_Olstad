@@ -1,10 +1,10 @@
 #!/bin/bash
 #SBATCH --job-name=rmt_project3
-#SBATCH --account=def-veen       # replace with your supervisor's account
+#SBATCH --account=def-veen       #  supervisors account
 #SBATCH --nodes=1
 #SBATCH --ntasks=4                 # 1 manager + 3 workers
 #SBATCH --mem=8G
-#SBATCH --time=1:00:00            # adjust as needed
+#SBATCH --time=1:00:00            # adjust for larger sizes
 #SBATCH --output=slurm-%j.out
 
 module load intel
