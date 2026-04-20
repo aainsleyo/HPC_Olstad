@@ -13,7 +13,7 @@ module load mkl
 
 EXE=./mainsim
 
-NS=(100, 500)
+NS=(100 500)
 NDATS=(500 1000)
 
 for N in "${NS[@]}"; do
