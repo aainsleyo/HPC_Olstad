@@ -10,9 +10,9 @@ Project 3 Workflow:
 ## Code Structure
 
 ### Core Simulation (Fortran)
-- `main.f90` — main driver program
-- `manager.f90` — manages workload distribution
-- `worker.f90` — performs matrix computations and eigenvalue extraction
+- `main.f90` - main driver program
+- `manager.f90` - manages workload distribution
+- `worker.f90` - performs matrix computations and eigenvalue extraction
 
 ## Shell Scripts
 
@@ -38,9 +38,9 @@ Project 3 Workflow:
 ### Output Location
 
 Each run produces:
-- `Eigs/` → eigenvalue data
-- `Stats/` → computed summary statistics
-- `slurm*.out` → HPC job logs
+- `Eigs/` - eigenvalue data
+- `Stats/` - computed summary statistics
+- `slurm*.out` - HPC job logs
 
 Each matrix size + iteration configuration is stored in its own folder.
 
@@ -55,9 +55,6 @@ The file:
 Workflow:
 - Histogram analysis of $\lambda_{\max}$
 - Tracy–Widom normalization:
-  \[
-  z = \frac{\lambda_{\max} - 2\sqrt{n}}{n^{1/6}}
-  \]
 - Kernel density estimation (KDE)
 - Gaussian comparison fits
 - Statistical testing:
